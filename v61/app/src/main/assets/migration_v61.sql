@@ -122,7 +122,7 @@ CREATE TRIGGER IF NOT EXISTS trg_v61_quotes_update BEFORE UPDATE ON quotes WHEN 
 CREATE TRIGGER IF NOT EXISTS trg_v61_quotes_delete BEFORE DELETE ON quotes BEGIN SELECT RAISE(ABORT,'Registro histórico inmutable: quotes'); END;
 
 --V61_STATEMENT--
-CREATE TRIGGER IF NOT EXISTS trg_v61_stock_kind BEFORE INSERT ON stock_movements BEGIN SELECT CASE WHEN NEW.kind='produccion' AND (NEW.delta_bottles!=(SELECT bottles FROM batch_outputs WHERE id=NEW.batch_output_id) OR NEW.delivery_line_id IS NOT NULL) THEN RAISE(ABORT,'Producción no cuadra') WHEN NEW.kind='entrega' AND (NEW.delta_bottles!=(SELECT -qty FROM delivery_lines WHERE id=NEW.delivery_line_id) OR NEW.delivery_line_id IS NULL) THEN RAISE(ABORT,'Entrega no cuadra') END; END;
+CREATE TRIGGER IF NOT EXISTS trg_v61_stock_kind BEFORE INSERT ON stock_movements BEGIN SELECT CASE WHEN NEW.kind NOT IN ('produccion','entrega') THEN RAISE(ABORT,'Ajuste de stock no habilitado') WHEN NEW.kind='produccion' AND (NEW.delta_bottles!=(SELECT bottles FROM batch_outputs WHERE id=NEW.batch_output_id) OR NEW.delivery_line_id IS NOT NULL OR EXISTS(SELECT 1 FROM stock_movements WHERE batch_output_id=NEW.batch_output_id AND kind='produccion')) THEN RAISE(ABORT,'Producción no cuadra') WHEN NEW.kind='entrega' AND (NEW.delta_bottles!=(SELECT -qty FROM delivery_lines WHERE id=NEW.delivery_line_id) OR NEW.delivery_line_id IS NULL) THEN RAISE(ABORT,'Entrega no cuadra') END; END;
 
 --V61_STATEMENT--
 CREATE TRIGGER IF NOT EXISTS trg_v61_consumption_recipe BEFORE INSERT ON batch_consumptions BEGIN SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM recipe_lines rl JOIN batches b ON b.recipe_id=rl.recipe_id WHERE b.id=NEW.batch_id AND rl.ingredient_id=NEW.ingredient_id) THEN RAISE(ABORT,'Ingrediente no pertenece a formula') END; END;
