@@ -1,0 +1,62 @@
+name: Auditoría Android emulador v6.0
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit-emulator.yml']
+permissions:
+  contents: read
+jobs:
+  smoke_android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extraer proyecto
+        run: unzip -oq Sistema_Artesanal_v6_0_PARA_GITHUB.zip -d .
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Preparar SDK
+        run: |
+          SDKM=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          test -x "$SDKM"
+          yes | "$SDKM" --licenses >/dev/null || true
+          "$SDKM" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Compilar APK
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Arrancar emulador e instalar APK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: |
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.formulalote.mobile/.MainActivity
+            sleep 12
+            adb shell pidof com.formulalote.mobile
+            adb shell dumpsys activity activities > android_activity.txt
+            adb shell uiautomator dump /sdcard/window.xml || true
+            adb pull /sdcard/window.xml android_ui.xml || true
+            adb shell screencap -p /sdcard/audit_screen.png
+            adb pull /sdcard/audit_screen.png android_screen.png
+            adb logcat -d -v time > android_logcat.txt
+            ! grep -E 'FATAL EXCEPTION.*com.formulalote.mobile' android_logcat.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Auditoria-emulador-v6-0
+          path: |
+            android_screen.png
+            android_ui.xml
+            android_activity.txt
+            android_logcat.txt
+          if-no-files-found: warn
