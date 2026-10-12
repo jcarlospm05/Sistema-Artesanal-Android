@@ -51,6 +51,7 @@ function bind(){
  $$('[data-add-quote-row]').forEach(x=>x.onclick=()=>$('#'+x.dataset.addQuoteRow).insertAdjacentHTML('beforeend',quoteRow()));
  $('#client-form')?.addEventListener('submit',submitClient);
  $('#catalog-form')?.addEventListener('submit',submitCatalog);
+ const chooseProduct=$('#catalog-form select[name=existing_product_id]');if(chooseProduct){const toggle=()=>{$('#catalog-form input[name=product_name]').required=!chooseProduct.value};chooseProduct.addEventListener('change',toggle);toggle();}
  $('#recipe-version-form')?.addEventListener('submit',submitRecipeVersion);
  $('#add-version-ingredient')?.addEventListener('click',()=>$('#new-recipe-lines').insertAdjacentHTML('beforeend',ingredientRow()));
  $('#catalog-form select[name="existing_product_id"]')?.addEventListener('change',e=>{$('#f-product_name').required=!e.target.value;$('#f-product_name').disabled=!!e.target.value;});
@@ -102,5 +103,5 @@ async function submitSettings(e){e.preventDefault();const f=e.target;try{let log
 async function downloadBackup(path,filename){try{window.mobileBackup(path);notify('Elige dónde guardar el respaldo en Android.')}catch(e){notify(e.message,true)}}
 window.addEventListener('DOMContentLoaded',async()=>{writeKey='ANDROID-LOCAL';document.addEventListener('click',ev=>{const rm=ev.target.closest('[data-remove-row]');if(rm)rm.parentElement.remove()});
  document.addEventListener('input',ev=>{const t=ev.target;if(t instanceof HTMLInputElement&&(t.matches('[inputmode=decimal]')||t.hasAttribute('data-price')||t.hasAttribute('data-bottle')||t.hasAttribute('data-unitprice')||t.hasAttribute('data-cost'))){let x=t.value.replace(/[^0-9.]/g,'');const bits=x.split('.');if(bits.length>1)x=bits[0]+'.'+bits.slice(1).join('').slice(0,2);if(x!==t.value)t.value=x}});
- $('#enter').onclick=()=>{$('#welcome').remove();sessionStorage.setItem('art_welcome','1')};if(sessionStorage.getItem('art_welcome'))$('#welcome').remove();try{await refresh()}catch(e){$('#view').innerHTML='<div class="bad">No fue posible abrir la base SQLite del teléfono. Revisa el paquete Android o restaura una copia de seguridad.<br>'+esc(e.message)+'</div>';notify(e.message,true)}});
+ $('#enter').onclick=()=>{$('#welcome').remove();(()=>{try{sessionStorage.setItem('art_welcome','1')}catch(e){}})()};try{if(sessionStorage.getItem('art_welcome'))$('#welcome').remove()}catch(e){}try{await refresh()}catch(e){$('#view').innerHTML='<div class="bad">No fue posible abrir la base SQLite del teléfono. Revisa el paquete Android o restaura una copia de seguridad.<br>'+esc(e.message)+'</div>';notify(e.message,true)}});
 </script></body></html>
