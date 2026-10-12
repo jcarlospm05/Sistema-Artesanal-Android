@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('fs'),os=require('os'),path=require('path');
+const {DatabaseSync}=require('node:sqlite');
+const {make}=require('../app/src/main/assets/local_repository.js');
+const tmp=path.join(os.tmpdir(),'v62-config-'+process.pid+'.sqlite');fs.copyFileSync(path.join(__dirname,'../app/src/main/assets/artesanal.sqlite'),tmp);
+const db=new DatabaseSync(tmp);db.exec('PRAGMA foreign_keys=ON');
+const bridge={execute(q){const {steps,tx}=JSON.parse(q),res=[];try{if(tx)db.exec('BEGIN IMMEDIATE');for(const s of steps){const stmt=db.prepare(s.sql),args=s.params||[];res.push(s.mode==='one'?stmt.get(...args)||null:s.mode==='all'?stmt.all(...args):(stmt.run(...args),null));}if(tx)db.exec('COMMIT');return JSON.stringify({results:res})}catch(e){if(tx)db.exec('ROLLBACK');return JSON.stringify({error:e.message})}}};
+const repo=make(bridge);
+const config={'REC-TRAD-RON':{stock:{'ING-RON':350},counts:{'SKU-VAR-TRAD-RON-750':3},packageSizes:{'ING-RON':700},packagePrices:{'ING-RON':700},lossPct:2}};
+assert.equal(repo.execute('/api/calculator/config',{config}).result.ok,true);
+assert.deepEqual(JSON.parse(repo.execute('/api/data').settings.calculator_config_v62),config);
+assert.throws(()=>repo.execute('/api/calculator/config',{config:{r:{stock:{x:-1}}}}),/inválido/);
+assert.throws(()=>repo.execute('/api/calculator/config',{config:{r:{lossPct:100}}}),/Merma/);
+assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
+console.log('PASS: calculator configs saved in SQLite; invalid values rejected; integrity OK');
+db.close();fs.unlinkSync(tmp);
