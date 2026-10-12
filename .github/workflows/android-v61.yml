@@ -1,0 +1,95 @@
+name: Android v6.1 - compilar y auditar
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-v61.yml'
+      - 'v61/**'
+permissions:
+  contents: read
+jobs:
+  qa_and_build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restaurar base v6.0 y aplicar codigo correctivo v6.1
+        shell: bash
+        run: |
+          unzip -oq Sistema_Artesanal_v6_0_PARA_GITHUB.zip -d .
+          cp -R v61/app/. app/
+          cp v61/tests/test_v61_regression.cjs tests/test_v61_regression.cjs
+          cp v61/README_ANDROID.md README_ANDROID.md
+          python3 - <<'PY'
+          import sqlite3
+          p='app/src/main/assets/artesanal.sqlite'
+          script=open('app/src/main/assets/migration_v61.sql').read()
+          db=sqlite3.connect(p)
+          db.execute('PRAGMA foreign_keys=ON')
+          for part in script.split('--V61_STATEMENT--'):
+            if part.strip(): db.executescript(part)
+          assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+          assert not db.execute('PRAGMA foreign_key_check').fetchall()
+          assert db.execute('PRAGMA user_version').fetchone()[0]==61
+          db.close()
+          PY
+
+      - name: Validar reglas SQLite y regresiones v6.0/v6.1
+        shell: bash
+        run: |
+          node --check app/src/main/assets/local_repository.js
+          node --check app/src/main/assets/mobile_adapter.js
+          node tests/test_android_repository.cjs
+          node tests/test_v61_regression.cjs
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK API 35
+        shell: bash
+        run: |
+          SDKM=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          test -x "$SDKM"
+          yes | "$SDKM" --licenses >/dev/null || true
+          "$SDKM" --install 'platforms;android-35' 'build-tools;35.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Reutilizar firma debug QA v6.1 (NO release)
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: qa-v61-android-debug-keystore-1
+
+      - name: Inicializar firma debug en primera compilación
+        shell: bash
+        run: |
+          mkdir -p ~/.android
+          if [ ! -s ~/.android/debug.keystore ]; then
+            keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -dname 'CN=Android Debug,O=Android,C=US' -keyalg RSA -keysize 2048 -validity 10000 -noprompt
+          fi
+
+      - name: Compilar APK QA v6.1
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Auditar resultado del APK
+        shell: bash
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E 'classes.dex|artesanal.sqlite|migration_v61.sql'
+          sha256sum app/build/outputs/apk/debug/app-debug.apk > APK_SHA256.txt
+
+      - name: Publicar APK, huella y fuente de pruebas
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sistema-Artesanal-Android-v6-1-QA-APK
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            APK_SHA256.txt
+          if-no-files-found: error
