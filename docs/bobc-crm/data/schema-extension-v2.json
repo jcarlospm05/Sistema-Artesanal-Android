@@ -620,6 +620,94 @@
         "supplier_id": "suppliers.id",
         "catalog_item_id": "catalog_items.id"
       }
+    },
+    {
+      "entity": "module_projects",
+      "fields": {
+        "id": "uuid",
+        "created_at": "datetime",
+        "updated_at": "datetime",
+        "label": "string?",
+        "enabled": "boolean?"
+      },
+      "references": {}
+    },
+    {
+      "entity": "module_contracts",
+      "fields": {
+        "id": "uuid",
+        "created_at": "datetime",
+        "updated_at": "datetime",
+        "label": "string?",
+        "enabled": "boolean?"
+      },
+      "references": {}
+    },
+    {
+      "entity": "module_receivables",
+      "fields": {
+        "id": "uuid",
+        "created_at": "datetime",
+        "updated_at": "datetime",
+        "label": "string?",
+        "enabled": "boolean?"
+      },
+      "references": {}
+    },
+    {
+      "entity": "module_expenses",
+      "fields": {
+        "id": "uuid",
+        "created_at": "datetime",
+        "updated_at": "datetime",
+        "label": "string?",
+        "enabled": "boolean?"
+      },
+      "references": {}
+    },
+    {
+      "entity": "module_forms",
+      "fields": {
+        "id": "uuid",
+        "created_at": "datetime",
+        "updated_at": "datetime",
+        "label": "string?",
+        "enabled": "boolean?"
+      },
+      "references": {}
+    },
+    {
+      "entity": "module_budgets",
+      "fields": {
+        "id": "uuid",
+        "created_at": "datetime",
+        "updated_at": "datetime",
+        "label": "string?",
+        "enabled": "boolean?"
+      },
+      "references": {}
+    },
+    {
+      "entity": "module_inventory",
+      "fields": {
+        "id": "uuid",
+        "created_at": "datetime",
+        "updated_at": "datetime",
+        "label": "string?",
+        "enabled": "boolean?"
+      },
+      "references": {}
+    },
+    {
+      "entity": "module_suppliers",
+      "fields": {
+        "id": "uuid",
+        "created_at": "datetime",
+        "updated_at": "datetime",
+        "label": "string?",
+        "enabled": "boolean?"
+      },
+      "references": {}
     }
   ]
 }
