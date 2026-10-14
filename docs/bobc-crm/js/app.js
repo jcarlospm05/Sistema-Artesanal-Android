@@ -1,3 +1,4 @@
+import {ModuleManager} from './modules/module-manager.js';
 const el=id=>document.getElementById(id);
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toast=s=>{const n=el('notice');n.textContent=s;setTimeout(()=>{if(n.textContent===s)n.textContent=''},5000)};
@@ -8,7 +9,7 @@ async function start(){
     import('./core/schema.js'),import('./core/idb.js'),import('./core/repository.js'),
     import('./modules/relationships/party-service.js'),import('./core/backup.js')]);
   const schema=await loadSchema(),db=await openDatabase(schema),repo=new Repository(db,schema),parties=new PartyService(repo);
-  let tab='relaciones';
+  let tab='relaciones';const mod=new ModuleManager(el('moduleRoot'),repo,schema,toast);
   status.textContent='Base local activa · '+Object.keys(schema).length+' entidades';
   const sections=Object.keys(schema);
   const counts=async()=>{const people=await repo.all('parties'),deals=await repo.all('opportunities'),activities=await repo.all('activity_items');return {people,deals,activities}};
@@ -18,7 +19,7 @@ async function start(){
    const rows=people.filter(p=>(p.display_name||'').toLocaleLowerCase().includes(q)).sort((a,b)=>(a.display_name||'').localeCompare(b.display_name||''));
    el('count').textContent=rows.length;
    el('records').innerHTML=rows.length?rows.map(p=>'<article class="record"><div><b>'+escape(p.display_name)+'</b><small>'+(p.party_type==='PERSON'?'Persona':'Empresa')+' · '+(p.lifecycle==='LEAD'?'Prospecto':p.lifecycle==='CUSTOMER'?'Cliente':'Archivado')+'</small></div>'+(p.lifecycle==='LEAD'?'<button class="mini" data-convert="'+escape(p.id)+'">Convertir</button>':'')+'</article>').join(''):'<div class="empty">No hay coincidencias. Pulsa + para registrar un prospecto o cliente.</div>';
-   el('relPanel').hidden=tab!=='relaciones';el('placeholder').hidden=tab==='relaciones';
+   el('relPanel').hidden=tab!=='relaciones';el('placeholder').hidden=tab==='relaciones'||tab==='mas';if(tab==='mas'){el('moduleRoot').hidden=false;await mod.draw()}else{el('moduleRoot').hidden=true}
    el('new').hidden=tab!=='relaciones';
    el('placeholderTitle').textContent=({inicio:'Resumen de operaciones',comercial:'Negocios',reportes:'Reportes',mas:'Módulos y configuración'})[tab]||'';
    let html='';
