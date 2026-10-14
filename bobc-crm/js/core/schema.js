@@ -1,0 +1,1 @@
+export async function loadSchema(){const r=await fetch('./data/schema.json',{cache:'no-store'});if(!r.ok)throw new Error('No se pudo cargar el modelo');const {entities}=await r.json();return Object.freeze(Object.fromEntries(entities.map(e=>[e.entity,e])))}export const DB_NAME='bobc-crm';export const DB_VERSION=1;
