@@ -67,14 +67,3 @@ header .offline{font-size:10px;white-space:nowrap;background:var(--mint);color:#
 @media(prefers-reduced-motion:reduce){.main-drawer{transition:none}}
 @media(max-width:380px){header .offline{font-size:9px;padding:6px}.headtext small{font-size:10px}.drawer-head{padding-top:18px}}
 @media print{.main-drawer,.drawer-scrim,header{display:none!important}}
-
-/* BOBC 1.0 — Extensiones de producción y materiales */
-.u-entry{border:1px solid #dae4e7;border-radius:15px;padding:14px;margin:12px 0;background:#fff;}
-.u-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:end;}
-.u-two .field{min-width:0}.u-two .sub{padding:12px 0}.u-item{flex:1;min-width:0}.u-item small{display:block;margin-top:3px}.u-item button{margin-top:7px}
-.u-qtyrow{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:13px 4px;border-bottom:1px solid #e4e9e9}.u-qtyrow b{display:block}.u-qtyrow small{display:block;font-size:12px;color:#5E6472}
-.u-qtycontrol{display:flex;gap:5px;align-items:center;flex-shrink:0}.u-qtycontrol button{background:#FAF3DD;color:#5E6472;border:1px solid #dce1dd;border-radius:12px;width:38px;height:39px;font-size:23px}.u-qtycontrol input{width:58px;min-width:0;text-align:center;padding:8px 2px;border:1px solid #d4dadd;border-radius:10px}
-.u-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}.u-kpis>div{background:#FAF3DD;border-radius:14px;padding:13px;min-height:84px}.u-kpis small{color:#5E6472;display:block;font-size:11px}.u-kpis strong{display:block;color:#323640;font-size:20px;overflow-wrap:anywhere;margin-top:7px}
-.u-shopping{margin-top:10px}.u-shopping .inventory-row{align-items:start}.u-extra{margin:8px 0;padding:7px;background:#B8F2E633;border-radius:12px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-.universal-record{align-items:center}.app-page .panel details summary{cursor:pointer;font-weight:650;padding:9px 0}.app-page h1{color:#5E6472}.u-shopping h3{margin-bottom:8px}.u-qtyrow input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-@media (max-width:380px){.u-two{grid-template-columns:1fr}.u-qtyrow{align-items:flex-start}.u-qtycontrol button{width:34px}.u-kpis strong{font-size:17px}}
