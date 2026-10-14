@@ -1,1 +1,49 @@
-import {loadSchema} from './core/schema.js';import {openDatabase} from './core/idb.js';import {Repository} from './core/repository.js';import {PartyService} from './modules/relationships/party-service.js';import {exportBackup,restoreBackup,downloadBlob} from './core/backup.js';const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const toast=s=>{const n=$('notice');n.textContent=s;setTimeout(()=>n.textContent='',4500)};async function main(){try{const schema=await loadSchema(),db=await openDatabase(schema),repo=new Repository(db,schema),parties=new PartyService(repo);$('status').textContent='Base local · '+Object.keys(schema).length+' entidades';async function refresh(){const rows=await parties.list($('search').value);$('count').textContent=rows.length;$('records').innerHTML=rows.length?rows.map(p=>'<article class="record"><div><b>'+esc(p.display_name)+'</b><small>'+esc(p.party_type==='PERSON'?'Persona':'Empresa')+' · '+esc(p.lifecycle)+'</small></div>'+(p.lifecycle==='LEAD'?'<button class="mini" data-convert="'+esc(p.id)+'">Convertir</button>':'')+'</article>').join(''):'<div class="empty">No hay registros. Pulsa + para comenzar.</div>'}$('search').oninput=refresh;$('new').onclick=()=>$('dialog').showModal();$('cancel').onclick=()=>$('dialog').close();$('form').onsubmit=async e=>{e.preventDefault();try{await parties.create({display_name:$('personName').value.trim(),party_type:$('personType').value,lifecycle:$('personStage').value});$('dialog').close();$('form').reset();await refresh();toast('Registro guardado')}catch(err){toast(err.message)}};$('records').onclick=async e=>{const id=e.target.closest('[data-convert]')?.dataset.convert;if(id){try{await parties.convertLead(id);await refresh();toast('Convertido a cliente')}catch(err){toast(err.message)}}};$('backup').onclick=async()=>downloadBlob(await exportBackup(db,schema),'BOBC-CRM-'+new Date().toISOString().slice(0,10)+'.json');$('import').onclick=()=>$('file').click();$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;if(!confirm('Esto reemplazará todos los datos locales. ¿Continuar?'))return;try{await restoreBackup(db,schema,await f.text());await refresh();toast('Restauración completa')}catch(err){toast(err.message)}finally{e.target.value=''}};document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));$('relPanel').hidden=b.dataset.tab!=='relaciones';$('placeholder').hidden=b.dataset.tab==='relaciones';$('placeholderTitle').textContent=({inicio:'Dashboard',comercial:'Oportunidades',reportes:'Reportes y consultas',mas:'Más módulos'})[b.dataset.tab]||''});await refresh()}catch(err){$('status').textContent='Error: '+err.message;console.error(err)}}main();
+const el=id=>document.getElementById(id);
+const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toast=s=>{const n=el('notice');n.textContent=s;setTimeout(()=>{if(n.textContent===s)n.textContent=''},5000)};
+async function start(){
+ const status=el('status');
+ try{
+  const [{loadSchema},{openDatabase},{Repository},{PartyService},{exportBackup,restoreBackup,downloadBlob}]=await Promise.all([
+    import('./core/schema.js'),import('./core/idb.js'),import('./core/repository.js'),
+    import('./modules/relationships/party-service.js'),import('./core/backup.js')]);
+  const schema=await loadSchema(),db=await openDatabase(schema),repo=new Repository(db,schema),parties=new PartyService(repo);
+  let tab='relaciones';
+  status.textContent='Base local activa · '+Object.keys(schema).length+' entidades';
+  const sections=Object.keys(schema);
+  const counts=async()=>{const people=await repo.all('parties'),deals=await repo.all('opportunities'),activities=await repo.all('activity_items');return {people,deals,activities}};
+  async function render(){
+   const {people,deals,activities}=await counts();
+   const q=el('search').value.toLocaleLowerCase();
+   const rows=people.filter(p=>(p.display_name||'').toLocaleLowerCase().includes(q)).sort((a,b)=>(a.display_name||'').localeCompare(b.display_name||''));
+   el('count').textContent=rows.length;
+   el('records').innerHTML=rows.length?rows.map(p=>'<article class="record"><div><b>'+escape(p.display_name)+'</b><small>'+(p.party_type==='PERSON'?'Persona':'Empresa')+' · '+(p.lifecycle==='LEAD'?'Prospecto':p.lifecycle==='CUSTOMER'?'Cliente':'Archivado')+'</small></div>'+(p.lifecycle==='LEAD'?'<button class="mini" data-convert="'+escape(p.id)+'">Convertir</button>':'')+'</article>').join(''):'<div class="empty">No hay coincidencias. Pulsa + para registrar un prospecto o cliente.</div>';
+   el('relPanel').hidden=tab!=='relaciones';el('placeholder').hidden=tab==='relaciones';
+   el('new').hidden=tab!=='relaciones';
+   el('placeholderTitle').textContent=({inicio:'Resumen de operaciones',comercial:'Negocios',reportes:'Reportes',mas:'Módulos y configuración'})[tab]||'';
+   let html='';
+   if(tab==='inicio')html='<div class="stats">'+
+    [['Clientes',people.filter(x=>x.lifecycle==='CUSTOMER').length],['Prospectos',people.filter(x=>x.lifecycle==='LEAD').length],['Negocios',deals.length],['Actividades',activities.length]].map(([a,b])=>'<div class="record"><div><b>'+b+'</b><small>'+a+'</small></div></div>').join('')+'</div><p>Resumen calculado directamente desde los registros locales.</p><button class="mini" data-go="relaciones">Ver relaciones</button>';
+   if(tab==='comercial')html='<p>Existen '+deals.length+' negocios registrados en la base.</p><div class="empty">El formulario de oportunidades y el tablero Kanban están en desarrollo. No se habilitan botones de creación hasta que estén operativos.</div><button class="mini" data-go="relaciones">Ver clientes</button>';
+   if(tab==='reportes')html='<p>Reporte básico de datos del CRM.</p><div class="record"><div><b>'+people.length+' relaciones</b><small>'+people.filter(x=>x.lifecycle==='CUSTOMER').length+' clientes · '+people.filter(x=>x.lifecycle==='LEAD').length+' prospectos</small></div></div><div class="record"><div><b>'+deals.length+' oportunidades</b><small>'+activities.length+' actividades registradas</small></div></div><button class="mini" data-export="csv">Exportar relaciones CSV</button><p>El constructor avanzado de reportes está pendiente.</p>';
+   if(tab==='mas')html='<p>Motor preparado con '+sections.length+' entidades. Los siguientes módulos están definidos en el modelo y aún no tienen interfaz:</p><div class="record"><div><b>Proyectos · Contratos · Cobros · Gastos</b><small>En desarrollo; todavía no publicados</small></div></div><div class="record"><div><b>Formularios · Presupuestos · Inventario · Proveedores</b><small>En desarrollo; migración de la v0.4 pendiente</small></div></div><button class="mini" data-export="json">Descargar respaldo JSON</button>';
+   el('placeholder').querySelector('.dynamic')?.remove();
+   const div=document.createElement('div');div.className='dynamic';div.innerHTML=html;el('placeholder').appendChild(div);
+   document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+   el('new').setAttribute('aria-label',tab==='relaciones'?'Agregar relación':'');
+  }
+  async function backup(){try{downloadBlob(await exportBackup(db,schema),'BOBC-CRM-'+new Date().toISOString().slice(0,10)+'.json');toast('Respaldo descargado')}catch(e){toast('Error del respaldo: '+e.message)}}
+  el('backup').onclick=backup;
+  el('import').onclick=()=>el('file').click();
+  el('file').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{if(!confirm('La restauración reemplazará los registros locales. ¿Continuar?'))return;await restoreBackup(db,schema,await f.text());await render();toast('Datos restaurados')}catch(ex){toast('No se restauró: '+ex.message)}finally{e.target.value=''}};
+  el('search').oninput=()=>render().catch(e=>toast(e.message));
+  el('new').onclick=()=>el('dialog').showModal();
+  el('cancel').onclick=()=>el('dialog').close();
+  el('form').onsubmit=async e=>{e.preventDefault();try{await parties.create({display_name:el('personName').value.trim(),party_type:el('personType').value,lifecycle:el('personStage').value});el('dialog').close();el('form').reset();await render();toast('Registro guardado')}catch(ex){toast('Error: '+ex.message)}};
+  el('records').onclick=async e=>{const btn=e.target.closest('[data-convert]');if(!btn)return;try{await parties.convertLead(btn.dataset.convert);await render();toast('Prospecto convertido a cliente')}catch(ex){toast(ex.message)}};
+  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render().catch(e=>toast(e.message))});
+  el('placeholder').onclick=async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.go){tab=b.dataset.go;await render()}if(b.dataset.export==='json')await backup();if(b.dataset.export==='csv'){const people=await repo.all('parties');const quote=v=>'"'+String(v??'').replaceAll('"','""')+'"';const csv='Nombre,Tipo,Estado\r\n'+people.map(p=>[p.display_name,p.party_type,p.lifecycle].map(quote).join(',')).join('\r\n');downloadBlob(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}),'BOBC-CRM-Relaciones.csv');toast('CSV generado')}};
+  await render();
+ }catch(err){status.textContent='Error: '+err.message;console.error(err);toast('No se pudo iniciar: '+err.message)}
+}
+start();
