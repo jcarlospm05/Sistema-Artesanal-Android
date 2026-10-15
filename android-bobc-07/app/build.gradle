@@ -6,8 +6,8 @@ android {
         applicationId 'com.bobc.artesanal.sync08'
         minSdk 26
         targetSdk 33
-        versionCode 83
-        versionName '0.8.3-sync-beta'
+        versionCode 84
+        versionName '0.8.4-sync-beta'
     }
     buildTypes {
         release { minifyEnabled false }
