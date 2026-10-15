@@ -4,7 +4,7 @@ window.BOBCAuth=(()=>{
 const cfg=window.BOBC_SUPABASE||{}, STORAGE='bobc08_auth_session_v1';
 const profiles={
  admin:{label:'Administrador',users:1,quotes:1,invoices:1,payments:1,delivery:1,inventory:1,production:1,reports:1,void:1},
- sales:{label:'Operador comercial y producción',users:0,quotes:0,invoices:1,payments:1,delivery:1,inventory:1,production:1,reports:1,void:0},
+ sales:{label:'Operador comercial y producción',users:0,quotes:1,invoices:1,payments:1,delivery:1,inventory:1,production:1,reports:1,void:0},
  production:{label:'Producción e inventario',users:0,quotes:0,invoices:0,payments:0,delivery:0,inventory:1,production:1,reports:1,void:0},
  viewer:{label:'Solo consulta',users:0,quotes:0,invoices:0,payments:0,delivery:0,inventory:0,production:0,reports:1,void:0}
 };
