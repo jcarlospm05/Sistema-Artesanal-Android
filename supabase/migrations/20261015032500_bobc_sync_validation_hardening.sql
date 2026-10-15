@@ -12,7 +12,7 @@ begin
  if v_uid is null or p_business_id is null or p_operation_id is null then raise exception 'Autenticación u operación no válida';end if;
  select m.profile_key into v_profile from public.memberships m where m.business_id=p_business_id and m.user_id=v_uid and m.active;
  if v_profile is null then raise exception 'Perfil no autorizado';end if;
- v_is_admin:=(v_profile='admin');v_can_invoice:=(v_profile in ('admin','sales'));v_can_prod:=(v_profile in ('admin','sales','production'));v_can_quote:=v_can_invoice;
+ v_is_admin:=(v_profile='admin');v_can_invoice:=(v_profile in ('admin','sales'));v_can_prod:=(v_profile in ('admin','sales','production'));v_can_quote:=v_is_admin;
  if p_revision is null or p_revision<0 or p_state is null or jsonb_typeof(p_state)<>'object' then raise exception 'Datos de sincronización inválidos';end if;
  if pg_column_size(p_state)>6000000 then raise exception 'Datos exceden límite de seguridad de 6 MB';end if;
  if (p_state->>'schema') is distinct from '1' or jsonb_typeof(p_state->'settings')<>'object' then raise exception 'Esquema BOBC incompatible';end if;
@@ -43,7 +43,7 @@ begin
       if v_key in ('invoices','payments') and not v_can_invoice then raise exception 'Facturación no autorizada';end if;
       if v_key='documents' and not (v_can_invoice or v_can_prod) then raise exception 'Documentación no autorizada';end if;
       if v_key='quotes' and not v_can_invoice then raise exception 'Cotizaciones no autorizadas';end if;
-      if v_key='expenses' and not v_can_invoice then raise exception 'Gastos reservados a administración y operación comercial';end if;
+      if v_key='expenses' and not v_is_admin then raise exception 'Gastos reservados al administrador';end if;
       if v_key='drafts' then
         if not v_is_admin and exists(select 1 from jsonb_array_elements(v_old_array) d where d->>'kind'='quote' and not exists(select 1 from jsonb_array_elements(v_new_array) n where n->>'id'=d->>'id' and n=d)) then raise exception 'El operador no puede eliminar cotizaciones en borrador';end if;
         -- validar cada documento existente/nuevo por su tipo (facturas vs cotizaciones)
