@@ -1,4 +1,4 @@
-name: Compilar BOBC 0.8 Usuarios Preview APK
+name: Compilar BOBC 0.8 Sync Beta APK
 on:
   workflow_dispatch:
   push:
@@ -27,18 +27,19 @@ jobs:
         run: |
           for f in android-bobc-07/app/src/main/assets/www/*.js; do node --check "$f"; done
           node tests/test_logic.js
+          node tests/test_sync.js
       - name: Compilar APK de prueba separada
         run: gradle --no-daemon -p android-bobc-07 :app:assembleDebug --stacktrace
       - name: Revisar y entregar APK
         run: |
           set -e
           mkdir -p output
-          cp android-bobc-07/app/build/outputs/apk/debug/app-debug.apk output/BOBC_0.8_USUARIOS_PREVIEW_debug.apk
-          test -s output/BOBC_0.8_USUARIOS_PREVIEW_debug.apk
-          unzip -t output/BOBC_0.8_USUARIOS_PREVIEW_debug.apk | tail -2
-          sha256sum output/BOBC_0.8_USUARIOS_PREVIEW_debug.apk
+          cp android-bobc-07/app/build/outputs/apk/debug/app-debug.apk output/BOBC_0.8.3_SYNC_BETA_debug.apk
+          test -s output/BOBC_0.8.3_SYNC_BETA_debug.apk
+          unzip -t output/BOBC_0.8.3_SYNC_BETA_debug.apk | tail -2
+          sha256sum output/BOBC_0.8.3_SYNC_BETA_debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: BOBC-0.8-USUARIOS-PREVIEW-APK
-          path: output/BOBC_0.8_USUARIOS_PREVIEW_debug.apk
+          name: BOBC-0.8.3-SYNC-BETA-APK
+          path: output/BOBC_0.8.3_SYNC_BETA_debug.apk
           retention-days: 90

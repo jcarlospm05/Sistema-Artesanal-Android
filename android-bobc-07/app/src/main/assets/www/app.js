@@ -2,7 +2,7 @@
 'use strict';
 const DBNAME='bobc-pwa-local-v1',STORE='documents',KEY='state',RESTORED_KEY='state-v07-restaurada';
 const fresh=()=>({schema:1,created:new Date().toISOString(),settings:{company_name:'Mi Taller Artesanal'},products:[],recipes:[],skus:[],quotes:[],invoices:[],payments:[],documents:[],calculations:[],inventory:[],movements:[],supplies:[],supplyMovements:[],packagingLinks:[],expenses:[],drafts:[],auditLog:[]});
-let D=fresh(),page='dashboard',plan=null,planResult=null,posDraft=null,activeDoc=null,lastSave=Promise.resolve(),openedDB=null,activeStateKey=KEY;
+let D=fresh(),page='dashboard',plan=null,planResult=null,posDraft=null,activeDoc=null,lastSave=Promise.resolve(),openedDB=null,activeStateKey=KEY,cloudAttempted=false;
 const $=(s,el=document)=>el.querySelector(s), $$=(s,el=document)=>Array.from(el.querySelectorAll(s));
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const n=(v)=>{const k=Number(v);if(!Number.isFinite(k)||k<0)throw Error('Indica una cantidad válida');return k};
@@ -19,7 +19,14 @@ function notice(t){let e=$('#toast');e.textContent=t;e.classList.add('show');cle
 function openIDB(){return new Promise((resolve,reject)=>{if(!('indexedDB'in window))return reject(Error('El navegador no permite IndexedDB'));const req=indexedDB.open(DBNAME,1);req.onupgradeneeded=()=>req.result.createObjectStore(STORE);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
 function getDB(db,key=KEY){return new Promise((resolve,reject)=>{const q=db.transaction(STORE,'readonly').objectStore(STORE).get(key);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})}
 function putDB(db,data,key=activeStateKey){return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(data,key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Guardado cancelado'))})}
-function save(){const copy=structuredClone(D);lastSave=lastSave.catch(()=>{}).then(()=>putDB(openedDB,copy));return lastSave}
+function save(){
+ const copy=structuredClone(D);
+ if(cloudAttempted){
+  if(!window.BOBCSync.enabled)return Promise.reject(Error('La base compartida no está disponible; ninguna operación se guardó.'));
+  lastSave=lastSave.catch(()=>{}).then(()=>window.BOBCSync.save(copy));return lastSave;
+ }
+ lastSave=lastSave.catch(()=>{}).then(()=>putDB(openedDB,copy));return lastSave;
+}
 function validationState(x){if(!x||x.schema!==1||!x.settings||!Array.isArray(x.products)||!Array.isArray(x.recipes)||!Array.isArray(x.skus)||!Array.isArray(x.quotes)||!Array.isArray(x.invoices)||!Array.isArray(x.documents)||!Array.isArray(x.inventory))throw Error('El archivo no contiene una base BOBC PWA válida')}
 /* Recuperación reversible: BOBC 1.0 conserva su estado schema=2 en 'state'.
    BOBC 0.7 trabaja con una copia compatible en otra clave; nunca modifica la base Universal. */
@@ -58,6 +65,29 @@ function restoreLegacySnapshot(x){
 const routes=[['dashboard','home','Inicio'],['invoices','sales','Ventas'],['catalog','package','Productos'],['expenses','expenses','Gastos'],['settings','store','Negocio'],['calculator','calculator','Planificación de Elaboración'],['costs','chart','Costeo y Rentabilidad'],['quotes','file','Cotizaciones'],['inventory','bottle','Inventario'],['documents','file','Documentos'],['preferences','settings','Ajustes'],['users','settings','Usuarios y perfiles']];
 const shortcuts=['dashboard','invoices','catalog','expenses','settings'];
 function normalizeState(x){window.BOBC08Core.ensure(x);for(const name of ['supplies','supplyMovements','packagingLinks','expenses','payments','movements'])if(!Array.isArray(x[name]))x[name]=[];return x;}
+function mergeImportedState(existing,incoming){
+ // La importación se fusiona por IDs, nunca reemplaza silenciosamente documentos.
+ // IDs iguales con datos diferentes exigen una revisión explícita, para no perder cobros.
+ const x=structuredClone(existing),keys=['products','recipes','skus','quotes','invoices','payments','documents','calculations','inventory','movements','supplies','supplyMovements','expenses','drafts','auditLog'];
+ for(const key of keys){
+  if(!Array.isArray(incoming[key]))continue;
+  const target=x[key]||(x[key]=[]),lookup=new Map(target.map(y=>[String(y.id),y]));
+  for(const item of incoming[key]){
+   const found=lookup.get(String(item.id));
+   if(found){if(JSON.stringify(found)!==JSON.stringify(item))throw Error('Hay versiones diferentes del registro '+key+' / '+item.id+'. Exporta ambos respaldos y conserva la información antes de fusionar.');}
+   else{target.push(structuredClone(item));lookup.set(String(item.id),item)}
+  }
+ }
+ // Una asociación de embalaje usa skuId como clave, no id.
+ x.packagingLinks=x.packagingLinks||[];
+ for(const link of incoming.packagingLinks||[]){const a=x.packagingLinks.find(y=>y.skuId===link.skuId);
+  if(a){if(JSON.stringify(a)!==JSON.stringify(link))throw Error('Asociación de empaque incompatible para '+link.skuId)}
+  else x.packagingLinks.push(structuredClone(link));
+ }
+ // Mantener empresa y fecha de creación de la base compartida.
+ return x;
+}
+
 function shell(){const group=v=>routes.find(r=>r[0]===v);$('#tabs').innerHTML='';window.BOBCMenu7.render(page);$('#bottom').innerHTML=shortcuts.filter(v=>window.BOBCAuth.canRoute(v)).map(v=>{const r=group(v),selected=page===v||(v==='invoices'&&page==='quotes');return `<button data-nav="${v}" class="${selected?'active':''}"><span>${window.BOBCUI6.ico(r[1],26)}</span>${r[2]}</button>`}).join('');}
 function nav(v){if(!window.BOBCAuth.canRoute(v)){notice('Tu perfil no tiene acceso a este módulo');return;}page=v;activeDoc=null;window.BOBCMenu7.close();shell();render();if(v==='users')window.BOBCUsers.refresh();window.scrollTo(0,0)}
 function render(){const target=$('#view');try{target.innerHTML=({dashboard:()=>window.BOBCUI6.dashboard(),calculator:()=>window.BOBCCookA.view(),costs:()=>window.BOBCCostB.view(),catalog:()=>window.BOBCUI6.catalogView(),quotes:()=>window.BOBCUI6.salesView(false),invoices:()=>window.BOBCUI6.salesView(true),documents:documentsView,inventory:()=>window.BOBCUI6.inventoryView(),expenses:()=>window.BOBCUI6.expensesView(),settings:()=>window.BOBCUI6.businessView(),preferences:settingsView,users:()=>window.BOBCUsers.view()})[page]();bind();}catch(e){target.innerHTML=`<div class="error">Error de pantalla: ${esc(e.message)}</div>`}}
@@ -79,7 +109,7 @@ function documentsView(){if(activeDoc)return pnl('Visor de documentos',`<div cla
 function documentHtml(d){return `<div class="doc" id="docPaper"><div class="dochead"><b>${esc(d.company||'Mi Taller Artesanal')}</b><small>${{factura:'VENTA · NO FISCAL',cotizacion:'PRESUPUESTO',recibo:'COMPROBANTE DE PAGO',calculo:'REPORTE DE CÁLCULO'}[d.kind]||esc(d.kind)}</small></div><h2>${esc(d.number)}</h2><p class="sub">Fecha: ${esc(d.date)}</p><table><thead><tr><th>Descripción</th><th>Cant.</th><th>Importe</th></tr></thead><tbody>${d.lines.map(l=>`<tr><td>${esc(l.description)}</td><td>${fmt(l.qty)}</td><td>${money(l.totalCents)}</td></tr>`).join('')}</tbody></table>${d.shippingCents?`<p>Envío: ${money(d.shippingCents)}</p>`:''}${d.discountCents?`<p>Descuento: −${money(d.discountCents)}</p>`:''}<div class="docsum">Total: ${money(d.totalCents)}</div>${d.notes?`<p>Nota: ${esc(d.notes)}</p>`:''}<p class="sub">Documento comercial privado · No genera NCF / e-CF.</p></div>`}
 function inventoryView(){return window.BOBCUI6.inventoryView();}
 function stock(skuId){return D.movements.filter(x=>x.skuId===skuId).reduce((sum,x)=>sum+(x.type==='entrada'?x.qty:-x.qty),0)}
-function settingsView(){return `${pnl('Identidad del negocio',`<form id="settingsForm">${input('company','Nombre comercial',D.settings.company_name)}<button type="submit" class="btn">Guardar nombre</button></form>`)}${pnl('Respaldo y seguridad',`<div class="note">Los datos viven únicamente en este navegador y dispositivo (IndexedDB). No están sincronizados con GitHub. No desinstales ni borres los datos del sitio sin exportar una copia.</div><div class="actions"><button class="btn" id="exportBackup">Descargar respaldo JSON</button><button class="btn secondary" id="importBackup">Restaurar respaldo</button><input type="file" id="fileRestore" accept=".json,application/json" style="display:none"><button class="btn secondary" id="persistent">Solicitar almacenamiento persistente</button></div><p class="sub">Versión PWA 0.5 · Base IndexedDB local · Datos privados por dispositivo.</p>`)}`}
+function settingsView(){return `${pnl('Identidad del negocio',`<form id="settingsForm">${input('company','Nombre comercial',D.settings.company_name)}<button type="submit" class="btn">Guardar nombre</button></form>`)}${pnl('Respaldo y seguridad',`<div class="note">BOBC sincroniza los registros del negocio con Supabase y mantiene una copia local. Los cobros y entregas exigen internet; exporta respaldos regularmente.</div><div class="actions"><button class="btn" id="exportBackup">Descargar respaldo JSON</button><button class="btn secondary" id="importBackup">Restaurar respaldo</button><input type="file" id="fileRestore" accept=".json,application/json" style="display:none"><button class="btn secondary" id="persistent">Solicitar almacenamiento persistente</button></div><p class="sub">BOBC 0.8 · Base compartida PostgreSQL, caché local protegida por usuario.</p>`)}`}
 function download(blob,name){
   if(window.BOBCAndroid && blob){
     const reader=new FileReader();
@@ -159,7 +189,7 @@ async function clickHandler(e){if(e.target.closest('#authRoot'))return;if(e.targ
  if(el.id==='shareDoc'){await sharePNG(activeDoc);return}
  if(el.id==='printDoc'){if(window.BOBCAndroid){window.BOBCAndroid.printPage()}else window.print();return}
  if(el.id==='exportBackup'){await lastSave;download(new Blob([JSON.stringify(D,null,2)],{type:'application/json'}),'BOBC_PWA_respaldo_'+day()+'.json');return}
- if(el.id==='importBackup'){$('#fileRestore').click();return}
+ if(el.id==='importBackup'){if(!window.BOBCAuth.allowed('users'))throw Error('Solo administrador puede importar respaldos');$('#fileRestore').click();return}
  if(el.id==='persistent'){const ok=await navigator.storage?.persist?.();notice(ok?'Almacenamiento persistente aprobado':'El navegador no concedió persistencia; usa respaldos');return}
  }catch(err){notice('Error: '+err.message)}}
 function openDocumentRef(key,kind){const d=D.documents.find(x=>x.kind===kind&&x.refId===key);if(!d)throw Error('Documento no encontrado');activeDoc=d.snapshot;nav('documents');activeDoc=d.snapshot;render()}
@@ -209,7 +239,7 @@ async function formHandler(e){if(e.target.id==='usersInviteForm'){e.preventDefau
  if(f.id==='settingsForm'){D.settings.company_name=$f(f,'company').trim()||'Mi Taller Artesanal';await save();render();notice('Identidad guardada');return}
  }catch(err){notice('Error: '+err.message)}}
 window.BOBCRefreshUsers=()=>{if(page==='users')render()};
-function bind(){if(page==='calculator')window.BOBCCookA.bind();if(page==='costs')window.BOBCCostB.bind();if(page==='documents'&&!activeDoc){$('#docSearch').oninput=e=>{$$('.docitem').forEach(x=>x.hidden=!x.dataset.search.includes(e.target.value.toLowerCase()))}}if(page==='preferences'){$('#fileRestore').onchange=async e=>{try{const file=e.target.files?.[0];if(!file)return;const state=JSON.parse(await file.text());validationState(state);if(!confirm('¿Reemplazar la base actual por esta copia? Exporta antes un respaldo.'))return;D=normalizeState(state);await save();plan=null;window.BOBCCookA.start(D.products[0]?.id||'_demo');nav('calculator');notice('Respaldo restaurado')}catch(err){notice('Restauración cancelada: '+err.message)}}}}
+function bind(){if(page==='calculator')window.BOBCCookA.bind();if(page==='costs')window.BOBCCostB.bind();if(page==='documents'&&!activeDoc){$('#docSearch').oninput=e=>{$$('.docitem').forEach(x=>x.hidden=!x.dataset.search.includes(e.target.value.toLowerCase()))}}if(page==='preferences'){$('#fileRestore').onchange=async e=>{try{const file=e.target.files?.[0];if(!file)return;const state=JSON.parse(await file.text());validationState(state);if(!window.BOBCAuth.allowed('users'))throw Error('Solo el administrador puede importar un respaldo');if(!confirm('Importar a BOBC COMPARTIDA agregando únicamente registros nuevos. Si hay diferencias en documentos existentes, se detendrá para evitar pérdidas. ¿Continuar?'))return;D=normalizeState(mergeImportedState(D,state));await save();plan=null;window.BOBCCookA.start(D.products[0]?.id||'_demo');nav('calculator');notice('Respaldo fusionado y sincronizado correctamente')}catch(err){notice('Restauración cancelada: '+err.message)}}}}
 window.BOBCUI6.setup({getD:()=>D,getPosDraft:()=>posDraft,save,nav,render,notice,id,stamp,code,money,fmt,input,stock,posLines,paidFor});
 window.BOBCCookA.setup({getD:()=>D,save,nav,render,notice,id,stamp,code});
 window.BOBCCostB.setup({getD:()=>D,save,nav,render,notice,id,stamp,code,setPosDraft:x=>{posDraft=x}});
@@ -224,6 +254,22 @@ window.addEventListener('DOMContentLoaded',async()=>{window.BOBCAuth.bind();if(!
   else{D=normalizeState(restoreLegacySnapshot(original));await save()}
  }else if(original){validationState(original);D=normalizeState(original)}
  else await save();
- shell();render();/* APK preview carga activos locales sin service worker para evitar cachés antiguos. */
+ cloudAttempted=true;
+ try{
+  await window.BOBCSync.start({
+   fresh,
+   setState:s=>{D=normalizeState(s);if(page==='calculator'&&D.products.length)window.BOBCCookA.start(D.products[0].id);},
+   saveLocal:s=>putDB(openedDB,s),
+   saveMigrationBackup:s=>putDB(openedDB,s,'state-backup-pre-sync'),
+   saveConflict:s=>putDB(openedDB,s,'state-backup-conflict'),
+   refresh:()=>{shell();render()},
+   warning:msg=>notice(msg),
+   status:msg=>{const el=$('#net');if(el)el.textContent=msg;}
+  },D);
+ }catch(error){
+   $('#view').innerHTML=`<div class="error">No se pudo conectar a la base de BOBC: ${esc(error.message)}. No se permite registrar operaciones sin sincronización. Tus datos locales permanecen guardados.</div>`;
+   window.BOBCMenu7.render(page);const badge=$('#net');if(badge)badge.textContent='Sin conexión';return;
+ }
+ shell();render();/* Cloud source of truth, IndexedDB is a local cache. */
  if(navigator.storage?.estimate){const e=await navigator.storage.estimate();if(e.quota===0)notice('Almacenamiento no disponible: usa otro navegador')}
  }catch(err){$('#view').innerHTML=`<div class="error">No se pudo iniciar BOBC: ${esc(err.message)}. Revisa los datos guardados o restaura un respaldo; no borres la base original.</div>`}});

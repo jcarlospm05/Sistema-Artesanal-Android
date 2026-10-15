@@ -12,3 +12,7 @@ Versión nativa empaquetada con Android WebViewAssetLoader, incluye todas las fu
 - Seguridad: contenido confiable empaquetado, se bloquean URLs externas dentro de WebView.
 
 Para generar una APK de producción se necesitará un keystore de firma **persistente y privado**, control de versiones y pruebas reales en Android. Esta APK no usa ese keystore y no representa versión de producción.
+
+
+## BOBC 0.8.3 Sync Beta
+Consultar `specs/BOBC_0.8_SYNC_BETA_ESTADO.md` en la raíz. APK Beta distinta de la v0.7.1 y v0.8.1 Preview.
