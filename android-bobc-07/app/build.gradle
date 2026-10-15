@@ -6,8 +6,8 @@ android {
         applicationId 'com.bobc.artesanal.preview08'
         minSdk 26
         targetSdk 33
-        versionCode 80
-        versionName '0.8.0-preview.1'
+        versionCode 81
+        versionName '0.8.1-preview-users'
     }
     buildTypes {
         release { minifyEnabled false }

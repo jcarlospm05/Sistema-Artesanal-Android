@@ -1,4 +1,4 @@
-name: Compilar BOBC 0.8 Preview APK
+name: Compilar BOBC 0.8 Usuarios Preview APK
 on:
   workflow_dispatch:
   push:
@@ -33,12 +33,12 @@ jobs:
         run: |
           set -e
           mkdir -p output
-          cp android-bobc-07/app/build/outputs/apk/debug/app-debug.apk output/BOBC_0.8_PREVIEW_LOCAL_debug.apk
-          test -s output/BOBC_0.8_PREVIEW_LOCAL_debug.apk
-          unzip -t output/BOBC_0.8_PREVIEW_LOCAL_debug.apk | tail -2
-          sha256sum output/BOBC_0.8_PREVIEW_LOCAL_debug.apk
+          cp android-bobc-07/app/build/outputs/apk/debug/app-debug.apk output/BOBC_0.8_USUARIOS_PREVIEW_debug.apk
+          test -s output/BOBC_0.8_USUARIOS_PREVIEW_debug.apk
+          unzip -t output/BOBC_0.8_USUARIOS_PREVIEW_debug.apk | tail -2
+          sha256sum output/BOBC_0.8_USUARIOS_PREVIEW_debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: BOBC-0.8-PREVIEW-LOCAL-APK
-          path: output/BOBC_0.8_PREVIEW_LOCAL_debug.apk
+          name: BOBC-0.8-USUARIOS-PREVIEW-APK
+          path: output/BOBC_0.8_USUARIOS_PREVIEW_debug.apk
           retention-days: 90
