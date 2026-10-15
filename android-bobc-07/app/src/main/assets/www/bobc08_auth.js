@@ -4,7 +4,7 @@ window.BOBCAuth=(()=>{
 const cfg=window.BOBC_SUPABASE||{}, STORAGE='bobc08_auth_session_v1';
 const profiles={
  admin:{label:'Administrador',users:1,quotes:1,invoices:1,payments:1,delivery:1,inventory:1,production:1,reports:1,void:1},
- sales:{label:'Operador comercial',users:0,quotes:1,invoices:1,payments:1,delivery:1,inventory:0,production:0,reports:1,void:0},
+ sales:{label:'Operador comercial y producción',users:0,quotes:0,invoices:1,payments:1,delivery:1,inventory:1,production:1,reports:1,void:0},
  production:{label:'Producción e inventario',users:0,quotes:0,invoices:0,payments:0,delivery:0,inventory:1,production:1,reports:1,void:0},
  viewer:{label:'Solo consulta',users:0,quotes:0,invoices:0,payments:0,delivery:0,inventory:0,production:0,reports:1,void:0}
 };
@@ -57,7 +57,7 @@ function canRoute(route){if(!member)return false;
  if(['calculator','costs','catalog'].includes(route))return allowed('production')||allowed('users')||member.profile_key==='viewer';
  if(route==='inventory')return allowed('inventory')||member.profile_key==='viewer';
  if(['invoices','quotes'].includes(route))return allowed('invoices')||member.profile_key==='viewer';
- if(route==='expenses')return allowed('users');
+ if(route==='expenses')return true; // Consulta para operador; registrar gasto requiere ser administrador.
  return true;}
 function writable(kind){if(!member||member.profile_key==='viewer')return false;return allowed(kind)}
 return {bind,init,login,signup,rpc,get,allowed,canRoute,writable,logout,profiles,get member(){return member},get businessId(){return member?.business_id||''}};

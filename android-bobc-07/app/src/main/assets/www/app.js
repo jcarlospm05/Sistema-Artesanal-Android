@@ -92,6 +92,15 @@ function drawPNG(d){const cn=document.createElement('canvas');cn.width=900;cn.he
 async function sharePNG(d){const png=drawPNG(d),blob=await new Promise(r=>png.toBlob(r,'image/png'));const f=new File([blob],d.number+'.png',{type:'image/png'});if(window.BOBCAndroid){const reader=new FileReader();reader.onload=()=>window.BOBCAndroid.shareBase64(f.name,'image/png',String(reader.result).split(',')[1]||'');reader.readAsDataURL(blob);return;}if(navigator.share&&navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:d.number})}catch(e){if(e.name!=='AbortError')download(blob,f.name)}}else{download(blob,f.name);notice('Descargado PNG para adjuntarlo en WhatsApp')}}
 async function clickHandler(e){if(e.target.closest('#authRoot'))return;if(e.target.closest('.sheet-backdrop')){window.BOBCUI6.close();return}const el=e.target.closest('button');if(!el||el.hasAttribute('data-bobc-logout'))return;try{
  if(await window.BOBCUsers.click(el))return;
+ const auth=window.BOBCAuth;
+ const clickAccess=[['data-ui-product','production'],['data-copy-formula','production'],['data-ui-new-supply','inventory'],['data-ui-stock','inventory'],['data-ui-link','inventory'],['data-ui-expense','users'],['data-b-quote','quotes'],['data-b-sale','invoices']];
+ for(const [attribute,permission] of clickAccess)if(el.hasAttribute(attribute)&&!auth.allowed(permission))throw Error('Sin permiso para esta operación');
+ if(el.id==='toQuote'&&!auth.allowed('quotes'))throw Error('No tienes permiso para emitir cotizaciones');
+ if(el.id==='toSale'&&!auth.allowed('invoices'))throw Error('No tienes permiso para emitir facturas');
+ if(el.hasAttribute('data-ui-pos')&&!auth.allowed(el.dataset.uiPos==='invoice'?'invoices':'quotes'))throw Error('Sin permiso para preparar este documento');
+ if(el.hasAttribute('data-edit-draft')){const draft=D.drafts.find(x=>x.id===el.dataset.editDraft);if(!draft||!auth.allowed(draft.kind==='invoice'?'invoices':'quotes'))throw Error('Sin permiso para editar el borrador');}
+ if(el.hasAttribute('data-convert')&&!auth.allowed('invoices'))throw Error('Sin permiso para convertir la cotización en factura');
+ if(el.id==='importBackup'&&!auth.allowed('users'))throw Error('Solo el administrador puede restaurar respaldos');
  if(el.hasAttribute('data-void')&&!window.BOBCAuth.allowed('void'))throw Error('Solo el administrador puede anular documentos');
  if(el.hasAttribute('data-ui-pay')&&!window.BOBCAuth.allowed('payments'))throw Error('Sin permiso para cobrar');
  if((el.hasAttribute('data-ui-deliver')||el.hasAttribute('data-confirm-delivery'))&&!window.BOBCAuth.allowed('delivery'))throw Error('Sin permiso para entregar');
@@ -155,10 +164,12 @@ async function clickHandler(e){if(e.target.closest('#authRoot'))return;if(e.targ
  }catch(err){notice('Error: '+err.message)}}
 function openDocumentRef(key,kind){const d=D.documents.find(x=>x.kind===kind&&x.refId===key);if(!d)throw Error('Documento no encontrado');activeDoc=d.snapshot;nav('documents');activeDoc=d.snapshot;render()}
 async function formHandler(e){if(e.target.id==='usersInviteForm'){e.preventDefault();try{await window.BOBCUsers.submit(e.target)}catch(err){notice('Usuarios: '+err.message)}return;}e.preventDefault();try{const f=e.target;
- const pr=window.BOBCAuth.member?.profile_key;
- if(pr==='viewer')throw Error('Este perfil es de solo consulta');
- if(pr==='sales'&&!['paymentForm','posForm','quoteForm','invoiceForm'].includes(f.id))throw Error('El perfil comercial no puede administrar producción, inventario ni configuración');
- if(pr==='production'&&['paymentForm','posForm','quoteForm','invoiceForm','settingsForm','expenseForm'].includes(f.id))throw Error('El perfil de producción no puede facturar ni cobrar');
+ const permission=f.id==='posForm'?(f.dataset.saleType==='invoice'?'invoices':'quotes'):({
+  paymentForm:'payments',expenseForm:'users',supplyForm:'inventory',supplyMoveForm:'inventory',
+  packagingForm:'inventory',stockForm:'inventory',productForm:'production',
+  externalForm:'inventory',settingsForm:'users',quoteForm:'quotes',invoiceForm:'invoices'
+ }[f.id]);
+ if(permission&&!window.BOBCAuth.allowed(permission))throw Error('No tienes permiso para realizar esta operación');
  if(f.id==='paymentForm'){const t=D.invoices.find(x=>x.id===$f(f,'invoiceId'));if(!t)throw Error('Factura no encontrada');const amount=ct($f(f,'amount'));window.BOBC08Core.validatePayment(D,t.id,amount);const p={id:id(),number:code('REC'),invoiceId:t.id,date:stamp(),amountCents:amount,method:$f(f,'method')};D.payments.push(p);D.documents.push({id:id(),kind:'recibo',refId:p.id,date:p.date,number:p.number,snapshot:makeDoc('recibo',p)});await save();window.BOBCUI6.close();render();notice('Pago registrado; recibo '+p.number+' creado');return}
  if(f.id==='expenseForm'){const name=$f(f,'name').trim(),amt=ct($f(f,'amount'));if(!name||amt<=0)throw Error('Indica el gasto y monto válido');D.expenses.push({id:id(),date:stamp(),name,category:$f(f,'category'),amountCents:amt});await save();window.BOBCUI6.close();render();notice('Gasto guardado');return}
  if(f.id==='supplyForm'){const name=$f(f,'name').trim(),kind=$f(f,'kind'),sizeMl=n($f(f,'sizeMl')),qty=n($f(f,'qty'));if(!name||!Number.isInteger(qty))throw Error('Nombre y cantidad entera obligatorios');const supply={id:id(),name,kind,sizeMl,created:stamp()};D.supplies.push(supply);if(qty)D.supplyMovements.push({id:id(),supplyId:supply.id,type:'entrada',qty,reason:'Existencia inicial',date:stamp()});await save();window.BOBCUI6.close();render();notice('Material registrado');return}
