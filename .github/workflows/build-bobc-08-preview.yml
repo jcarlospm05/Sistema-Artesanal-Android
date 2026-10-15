@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/bobc-0.8-private-sync
+      - feature/bobc-084-update-permissions
     paths:
       - 'android-bobc-07/**'
       - 'tests/**'
@@ -34,12 +35,12 @@ jobs:
         run: |
           set -e
           mkdir -p output
-          cp android-bobc-07/app/build/outputs/apk/debug/app-debug.apk output/BOBC_0.8.3_SYNC_BETA_debug.apk
-          test -s output/BOBC_0.8.3_SYNC_BETA_debug.apk
-          unzip -t output/BOBC_0.8.3_SYNC_BETA_debug.apk | tail -2
-          sha256sum output/BOBC_0.8.3_SYNC_BETA_debug.apk
+          cp android-bobc-07/app/build/outputs/apk/debug/app-debug.apk output/BOBC_0.8.4_SYNC_BETA_debug.apk
+          test -s output/BOBC_0.8.4_SYNC_BETA_debug.apk
+          unzip -t output/BOBC_0.8.4_SYNC_BETA_debug.apk | tail -2
+          sha256sum output/BOBC_0.8.4_SYNC_BETA_debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: BOBC-0.8.3-SYNC-BETA-APK
-          path: output/BOBC_0.8.3_SYNC_BETA_debug.apk
+          name: BOBC-0.8.4-SYNC-BETA-APK
+          path: output/BOBC_0.8.4_SYNC_BETA_debug.apk
           retention-days: 90
