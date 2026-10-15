@@ -3,11 +3,11 @@ android {
     namespace 'com.bobc.artesanal'
     compileSdk 35
     defaultConfig {
-        applicationId 'com.bobc.artesanal'
+        applicationId 'com.bobc.artesanal.preview08'
         minSdk 26
         targetSdk 33
-        versionCode 71
-        versionName '0.7.1'
+        versionCode 80
+        versionName '0.8.0-preview.1'
     }
     buildTypes {
         release { minifyEnabled false }

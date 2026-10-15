@@ -1,0 +1,44 @@
+name: Compilar BOBC 0.8 Preview APK
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bobc-0.8-private-sync
+    paths:
+      - 'android-bobc-07/**'
+      - 'tests/**'
+      - '.github/workflows/build-bobc-08-preview.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Validar JavaScript y lógica comercial
+        run: |
+          for f in android-bobc-07/app/src/main/assets/www/*.js; do node --check "$f"; done
+          node tests/test_logic.js
+      - name: Compilar APK de prueba separada
+        run: gradle --no-daemon -p android-bobc-07 :app:assembleDebug --stacktrace
+      - name: Revisar y entregar APK
+        run: |
+          set -e
+          mkdir -p output
+          cp android-bobc-07/app/build/outputs/apk/debug/app-debug.apk output/BOBC_0.8_PREVIEW_LOCAL_debug.apk
+          test -s output/BOBC_0.8_PREVIEW_LOCAL_debug.apk
+          unzip -t output/BOBC_0.8_PREVIEW_LOCAL_debug.apk | tail -2
+          sha256sum output/BOBC_0.8_PREVIEW_LOCAL_debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BOBC-0.8-PREVIEW-LOCAL-APK
+          path: output/BOBC_0.8_PREVIEW_LOCAL_debug.apk
+          retention-days: 90
